@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "name": "Antenne 1",
+    "x": 570962.23,
+    "y": 5512145.41,
+    "z": 257.0,
+    "isChosen": false,
+    "desc": "Alternativer Planungsstandort"
+  },
+  {
+    "id": 2,
+    "name": "Antenne 2",
+    "x": 571016.42,
+    "y": 5512783.0,
+    "z": 247.0,
+    "isChosen": false,
+    "desc": "Alternativer Planungsstandort"
+  },
+  {
+    "id": 3,
+    "name": "Antenne 3",
+    "x": 571725.77,
+    "y": 5511758.0,
+    "z": 233.0,
+    "isChosen": true,
+    "desc": "Untersuchter Hauptstandort"
+  }
+]

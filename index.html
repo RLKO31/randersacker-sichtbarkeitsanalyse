@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sichtbarkeitsanalyse Randersacker – Interaktives 3D-Dashboard</title>
+  <meta name="description" content="3D-GIS Sichtbarkeits- und Verschattungsanalyse für einen fiktiven Antennenstandort im Markt Randersacker bei Würzburg (LoD2 & DGM1).">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+
+  <!-- Google Fonts & Font Awesome 6 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Three.js Import Map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- 3D WebGL Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- Loading Screen -->
+  <div id="loader-overlay" class="loader-overlay">
+    <div class="loader-card glass-panel">
+      <div class="loader-icon">
+        <i class="fa-solid fa-tower-broadcast fa-spin-pulse"></i>
+      </div>
+      <h2>Sichtbarkeitsanalyse Randersacker</h2>
+      <p id="loader-status">Lade 3D-Geländerelief & Geodaten...</p>
+      <div class="loader-bar-bg">
+        <div id="loader-progress-bar" class="loader-bar-fill"></div>
+      </div>
+      <span class="loader-subtext">DGM1 • CityGML LoD2 • Viewshed GIS-Analyse</span>
+    </div>
+  </div>
+
+  <!-- App UI Layout -->
+  <div class="app-layout">
+
+    <!-- Top Navigation Header -->
+    <header class="app-header glass-panel">
+      <div class="header-brand">
+        <div class="brand-badge"><i class="fa-solid fa-tower-broadcast"></i></div>
+        <div class="brand-text">
+          <h1>Sichtbarkeitsanalyse <span>Randersacker</span></h1>
+          <p class="subtitle">3D-GIS Untersuchung fiktiver Antennenstandorte • Maintal bei Würzburg</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="pill-badge">
+          <span class="dot-pulse"></span>
+          <span id="header-focus-text">Fokus: Antenne 3 (233 m ü. NHN)</span>
+        </div>
+        <button id="btn-theme-toggle" class="header-icon-btn" title="Design-Modus wechseln">
+          <i class="fa-solid fa-palette"></i>
+        </button>
+        <button id="btn-open-gallery" class="btn btn-secondary btn-sm">
+          <i class="fa-solid fa-images"></i> GIS-Karten
+        </button>
+        <button id="btn-open-legal" class="btn btn-secondary btn-sm">
+          <i class="fa-solid fa-scale-balanced"></i> Impressum
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="workspace-area">
+
+      <!-- Left Floating Sidebar: Layer Controls & Antennas -->
+      <aside class="control-panel glass-panel">
+        <div class="panel-section">
+          <h3 class="panel-title"><i class="fa-solid fa-tower-cell"></i> Antennen-Standorte</h3>
+          <div class="antenna-list" id="antenna-buttons">
+            <!-- Dynamically populated or static fast buttons -->
+            <button class="antenna-btn active" data-id="3">
+              <div class="ant-icon-badge primary"><i class="fa-solid fa-signal"></i></div>
+              <div class="ant-info">
+                <strong>Antenne 3 (Untersucht)</strong>
+                <small>X: 571.726 | Y: 5.511.758 | 233 m</small>
+              </div>
+            </button>
+            <button class="antenna-btn" data-id="1">
+              <div class="ant-icon-badge"><i class="fa-solid fa-location-dot"></i></div>
+              <div class="ant-info">
+                <strong>Antenne 1 (Vergleich)</strong>
+                <small>X: 570.962 | Y: 5.512.145 | 257 m</small>
+              </div>
+            </button>
+            <button class="antenna-btn" data-id="2">
+              <div class="ant-icon-badge"><i class="fa-solid fa-location-dot"></i></div>
+              <div class="ant-info">
+                <strong>Antenne 2 (Vergleich)</strong>
+                <small>X: 571.016 | Y: 5.512.783 | 247 m</small>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="panel-title"><i class="fa-solid fa-layer-group"></i> 3D-Kartenebenen</h3>
+          <div class="toggle-group">
+            <label class="toggle-control">
+              <input type="checkbox" id="toggle-viewshed" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-label"><i class="fa-solid fa-eye" style="color: #10b981;"></i> Viewshed (Sichtbarkeit)</span>
+            </label>
+
+            <label class="toggle-control">
+              <input type="checkbox" id="toggle-rays" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-label"><i class="fa-solid fa-share-nodes" style="color: #38bdf8;"></i> 3D-Sichtstrahlen (Rays)</span>
+            </label>
+
+            <label class="toggle-control">
+              <input type="checkbox" id="toggle-buildings" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-label"><i class="fa-solid fa-building" style="color: #f59e0b;"></i> LoD2-Gebäudeensemble</span>
+            </label>
+
+            <label class="toggle-control">
+              <input type="checkbox" id="toggle-wireframe">
+              <span class="toggle-track"></span>
+              <span class="toggle-label"><i class="fa-solid fa-draw-polygon"></i> Geländegitter (Wireframe)</span>
+            </label>
+
+            <label class="toggle-control">
+              <input type="checkbox" id="toggle-autorotate" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-label"><i class="fa-solid fa-rotate"></i> Sanfte Rotation</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="panel-title"><i class="fa-solid fa-video"></i> Kameraperspektiven</h3>
+          <div class="camera-grid">
+            <button class="cam-btn" data-cam="iso" title="Isometrische Gesamtansicht">
+              <i class="fa-solid fa-mountain"></i> Maintal
+            </button>
+            <button class="cam-btn" data-cam="antenna" title="Nahansicht Antenne 3">
+              <i class="fa-solid fa-tower-cell"></i> Antenne 3
+            </button>
+            <button class="cam-btn" data-cam="valley" title="Blick aus dem Ortskern Randersacker">
+              <i class="fa-solid fa-city"></i> Ortskern
+            </button>
+            <button class="cam-btn" data-cam="top" title="Vogelperspektive (2D Draufsicht)">
+              <i class="fa-solid fa-compass"></i> Draufsicht
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="panel-title"><i class="fa-solid fa-sliders"></i> Überhöhung Relief</h3>
+          <div class="slider-row">
+            <span class="slider-val" id="exaggeration-val">1.5x</span>
+            <input type="range" id="slider-exaggeration" min="1.0" max="3.0" step="0.25" value="1.5">
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right Floating Dashboard: Analysis Results & Metrics -->
+      <aside class="dashboard-panel glass-panel">
+        <h3 class="panel-title"><i class="fa-solid fa-chart-pie"></i> Analyse-Ergebnisse</h3>
+
+        <div class="metrics-grid">
+          <div class="metric-card success">
+            <span class="metric-label"><i class="fa-solid fa-eye"></i> Sichtbare Zellen</span>
+            <span class="metric-value">484.954</span>
+            <span class="metric-detail">Rasterzellen mit direktem Sichtkontakt</span>
+          </div>
+
+          <div class="metric-card danger">
+            <span class="metric-label"><i class="fa-solid fa-eye-slash"></i> Verschattet / Blockiert</span>
+            <span class="metric-value">5.515.046</span>
+            <span class="metric-detail">Durch Hänge & Firste abgedeckt</span>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label"><i class="fa-solid fa-street-view"></i> Messpunkte im Ort</span>
+            <span class="metric-value">20.263 <small>Pkt.</small></span>
+            <span class="metric-detail">1,50 m Fußgängerhöhe (OFFSETB)</span>
+          </div>
+
+          <div class="metric-card highlight">
+            <span class="metric-label"><i class="fa-solid fa-bullseye"></i> Sichtkontakt Quote</span>
+            <span class="metric-value">11,7 <small>%</small></span>
+            <span class="metric-detail">2.370 sichtbare Zielpunkte im Tal</span>
+          </div>
+        </div>
+
+        <!-- Legend Box -->
+        <div class="legend-card">
+          <h4><i class="fa-solid fa-map-pin"></i> Legende der 3D-Szene</h4>
+          <div class="legend-items">
+            <div class="legend-item">
+              <span class="color-swatch viewshed-visible"></span>
+              <span><strong>Viewshed Grün:</strong> Direkte Sichtlinie zur Antenne</span>
+            </div>
+            <div class="legend-item">
+              <span class="color-swatch viewshed-shadow"></span>
+              <span><strong>Gelände Relief:</strong> Maintal & Weinberghänge</span>
+            </div>
+            <div class="legend-item">
+              <span class="color-swatch ray-visible"></span>
+              <span><strong>Grüner Strahl:</strong> Freie Sichtlinie (Line-of-Sight)</span>
+            </div>
+            <div class="legend-item">
+              <span class="color-swatch ray-blocked"></span>
+              <span><strong>Roter Strahl:</strong> Sichtkontakt durch Hindernis unterbrochen</span>
+            </div>
+            <div class="legend-item">
+              <span class="color-swatch building-color"></span>
+              <span><strong>Gebäudekörper:</strong> 841 CityGML LoD2 Gebäude</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- GIS Methodology Context Box -->
+        <div class="info-box">
+          <h4><i class="fa-solid fa-circle-nodes"></i> Geoverarbeitung (ArcGIS Pro)</h4>
+          <p>
+            Durch Kombination von <strong>DGM1</strong> und <strong>LoD2-Gebäuden</strong> wurde ein digitales Oberflächenmodell (DOM) mit 1-Meter-Auflösung erzeugt. Die Sichtbarkeit wurde mittels <code>ConstructSightLines</code> und <code>LineOfSight</code> unter Berücksichtigung realer Firsthöhen berechnet.
+          </p>
+        </div>
+
+        <!-- Navigation Controls Hint -->
+        <div class="nav-hint-bar">
+          <div class="hint-item"><i class="fa-solid fa-computer-mouse"></i> <span><strong>Drehen:</strong> Linksklick & Ziehen</span></div>
+          <div class="hint-item"><i class="fa-solid fa-arrows-up-down-left-right"></i> <span><strong>Verschieben:</strong> Rechtsklick</span></div>
+          <div class="hint-item"><i class="fa-solid fa-magnifying-glass"></i> <span><strong>Zoomen:</strong> Mausrad</span></div>
+        </div>
+      </aside>
+
+    </main>
+
+    <!-- Footer Bar -->
+    <footer class="app-footer glass-panel">
+      <div class="footer-left">
+        <span>© 2026 Ralf Oppel • 3D-GIS Portfolio 2 • THWS</span>
+        <span class="sep">•</span>
+        <span>Markt Randersacker, Landkreis Würzburg</span>
+      </div>
+      <div class="footer-right">
+        <span>Geodatenquelle: <strong>Bayerische Vermessungsverwaltung</strong> (Open Data Bayern)</span>
+        <span class="sep">•</span>
+        <a href="#impressum" id="link-legal-modal">Impressum & Lizenzhinweise</a>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- GIS Result Gallery Modal -->
+  <div id="gallery-modal" class="modal-overlay">
+    <div class="modal-card gallery-card glass-panel">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-images"></i> GIS-Auswertungen & Originalkarten</h2>
+        <button id="btn-close-gallery" class="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="gallery-grid">
+        <div class="gallery-item">
+          <img src="assets/Karte_Bild.png" alt="2D-Sichtbarkeitskarte Randersacker" loading="lazy">
+          <div class="gallery-caption">
+            <strong>2D-Übersichtskarte Sichtbarkeit</strong>
+            <p>Kartografische Auswertung der berechneten Punkte im Tal (Grün = Sichtbar, Rot = Blockiert)</p>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <img src="assets/3D.png" alt="3D-Ansicht Maintal mit Sichtstrahlen" loading="lazy">
+          <div class="gallery-caption">
+            <strong>3D-Perspektive der Sichtstrahlen</strong>
+            <p>Räumlicher Strahlenfächer von Antenne 3 auf das 1,5m-Beobachtungsgitter</p>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <img src="assets/sichtbar_Linie.png" alt="Sichtbarkeitslinien Fächer" loading="lazy">
+          <div class="gallery-caption">
+            <strong>Line-of-Sight Strahlenfächer</strong>
+            <p>Detailanalyse der Sichtunterbrechungen an Talrändern und Firstkanten</p>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <img src="assets/Linien_nah.png" alt="Nahansicht Sichtlinien" loading="lazy">
+          <div class="gallery-caption">
+            <strong>Nahbereich Ortskern Randersacker</strong>
+            <p>Verschattungseffekte durch eng stehende historische Baukörper</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legal & Open Data Modal (§ 5 DDG) -->
+  <div id="legal-modal" class="modal-overlay">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-scale-balanced"></i> Impressum & Rechtliche Angaben</h2>
+        <button id="btn-close-modal" class="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-content">
+        <section class="legal-section">
+          <h3>1. Angaben gemäß § 5 Digitale-Dienste-Gesetz (DDG)</h3>
+          <p><strong>Verantwortlicher Betreiber dieser Website:</strong></p>
+          <p>
+            Ralf Oppel<br>
+            Studiengang Geodatenmanagement / Vermessung<br>
+            Hochschule für angewandte Wissenschaften Würzburg-Schweinfurt (THWS)<br>
+            E-Mail: <a href="mailto:ralf.oppel@study.thws.de">ralf.oppel@study.thws.de</a>
+          </p>
+          <p>
+            <em>Hinweis:</em> Bei diesem interaktiven Webportal handelt es sich um ein studentisches Studien- und Forschungsprojekt für das Modul 3D-GIS. Die dargestellten Antennenstandorte sind fiktiv.
+          </p>
+        </section>
+
+        <section class="legal-section">
+          <h3>2. Geodatenbasis & Urheberrechtsnachweis (Open Data Bayern)</h3>
+          <p>
+            Die Geodaten (Digitales Geländemodell DGM1, 3D-Gebäudemodelle LoD2 CityGML, Orthofotos DOP20) wurden bezogen über:
+          </p>
+          <blockquote>
+            <strong>Bayerische Vermessungsverwaltung</strong><br>
+            Landesamt für Digitalisierung, Breitband und Vermessung Bayern (LDBV)<br>
+            Webportal: <a href="https://geodatenonline.bayern.de/" target="_blank" rel="noopener">https://geodatenonline.bayern.de/</a>
+          </blockquote>
+          <p>
+            <strong>Nutzungsbedingungen der Geodaten:</strong><br>
+            Die Geodaten unterliegen der <strong>Datenlizenz Deutschland – Namensnennung – Version 2.0</strong> (<a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">dl-de/by-2-0</a>).
+          </p>
+          <p>
+            <em>Quellenvermerk:</em> „Datenquelle: Bayerische Vermessungsverwaltung – www.geodaten.bayern.de“
+          </p>
+        </section>
+
+        <section class="legal-section">
+          <h3>3. Software & Open Source Lizenzen</h3>
+          <ul>
+            <li><strong>Three.js</strong> (WebGL 3D Engine) – MIT License</li>
+            <li><strong>Font Awesome Free</strong> – Icons (CC BY 4.0 / SIL OFL 1.1)</li>
+            <li><strong>Google Fonts (Plus Jakarta Sans, JetBrains Mono)</strong> – SIL Open Font License</li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-modal-ack" class="btn btn-primary">Verstanden & Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
