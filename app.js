@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // --- STATE MANAGEMENT ---
 const state = {
   activeAntennaId: 3,
+  showSatellite: true,
   showViewshed: true,
   showRays: true,
   showBuildings: true,
@@ -27,7 +28,7 @@ let dirLight1, dirLight2, hemiLight, ambientLight;
 let terrainData = null;
 let antennasData = [];
 let sightlinesData = [];
-let buildingsData = [];
+let buildingsData = null;
 
 // Scene scale offset: translate UTM (X: 570000..573000, Y: 5511000..5513000)
 // Center point near Randersacker:
@@ -139,7 +140,7 @@ async function loadAllData() {
       fetch('assets/terrain.json').then(r => r.json()),
       fetch('assets/antennas.json').then(r => r.json()),
       fetch('assets/sightlines.json').then(r => r.json()),
-      fetch('assets/buildings.json').then(r => r.json())
+      fetch('assets/lod2_buildings.json').then(r => r.json())
     ]);
 
     terrainData = resTerrain;
@@ -147,7 +148,7 @@ async function loadAllData() {
     sightlinesData = resSight;
     buildingsData = resBuild;
 
-    updateLoader(true, 'Generiere 3D-Oberflächennetz & Gebäude...', 65);
+    updateLoader(true, 'Generiere 3D-LoD2-Gebäude & Geländemodell...', 65);
     buildTerrainMesh();
     buildAntennas();
     buildSightlines();
@@ -162,11 +163,46 @@ async function loadAllData() {
 }
 
 // --- BUILD TERRAIN MESH ---
+let satelliteTexture = null;
+
+function createViewshedCanvas(viewshed, nx, ny) {
+  const canvas = document.createElement('canvas');
+  canvas.width = nx;
+  canvas.height = ny;
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(nx, ny);
+  const data = imgData.data;
+
+  // nx=150, ny=100. Row 0 is Top (North: 5513000), Row ny-1 is Bottom (South: 5511000)
+  for (let y = 0; y < ny; y++) {
+    for (let x = 0; x < nx; x++) {
+      const idx = y * nx + x;
+      const pixelIdx = (y * nx + x) * 4;
+      if (viewshed[idx] === 1) {
+        // Emerald green overlay for visible areas
+        data[pixelIdx + 0] = 16;   // R
+        data[pixelIdx + 1] = 185;  // G
+        data[pixelIdx + 2] = 129;  // B
+        data[pixelIdx + 3] = 175;  // Alpha (Semi-transparent)
+      } else {
+        data[pixelIdx + 3] = 0;    // Transparent
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  return texture;
+}
+
+let viewshedCanvasTexture = null;
+
 function buildTerrainMesh() {
   if (!terrainData) return;
-  const { nx, ny, width, height, dem, viewshed, originX, originY } = terrainData;
+  const { nx, ny, width, height, dem, viewshed } = terrainData;
 
-  // Plane geometry: nx columns, ny rows
   const worldWidth = width * SCALE_XY;
   const worldHeight = height * SCALE_XY;
 
@@ -176,16 +212,12 @@ function buildTerrainMesh() {
   const posAttr = terrainGeometry.attributes.position;
   const colors = [];
 
-  // Hypsometric terrain colors & viewshed green overlay
+  // Hypsometric colors (when satellite is off)
   for (let i = 0; i < posAttr.count; i++) {
     const elev = dem[i] || BASE_Z;
-    const isVisible = viewshed[i] === 1;
-
-    // Set Y elevation with exaggeration factor
     const yVal = (elev - BASE_Z) * SCALE_Z * state.exaggeration;
     posAttr.setY(i, yVal);
 
-    // Color computation
     const t = THREE.MathUtils.clamp((elev - 170) / (325 - 170), 0.0, 1.0);
     const baseColor = new THREE.Color();
     
@@ -196,9 +228,8 @@ function buildTerrainMesh() {
       0.30 - t * 0.15
     );
 
-    // If viewshed overlay is enabled and point is visible:
-    if (state.showViewshed && isVisible) {
-      // Emerald green glowing tone
+    // If satellite is OFF and viewshed is ON:
+    if (!state.showSatellite && state.showViewshed && viewshed[i] === 1) {
       baseColor.setRGB(0.1, 0.85, 0.35);
     }
 
@@ -208,10 +239,28 @@ function buildTerrainMesh() {
   terrainGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   terrainGeometry.computeVertexNormals();
 
+  // Load Satellite texture
+  const texLoader = new THREE.TextureLoader();
+  texLoader.load(
+    'assets/satellite.jpg',
+    (tex) => {
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      satelliteTexture = tex;
+      updateTerrainMaterial();
+    },
+    undefined,
+    (err) => console.warn('Satellite-Textur konnte nicht geladen werden, verwende Höhenstufen:', err)
+  );
+
+  // Create Viewshed Texture
+  viewshedCanvasTexture = createViewshedCanvas(viewshed, nx, ny);
+
   const terrainMat = new THREE.MeshStandardMaterial({
-    vertexColors: true,
+    vertexColors: !state.showSatellite,
     roughness: 0.85,
-    metalness: 0.1,
+    metalness: 0.05,
     flatShading: false
   });
 
@@ -233,6 +282,50 @@ function buildTerrainMesh() {
   scene.add(terrainWireframe);
 }
 
+function updateTerrainMaterial() {
+  if (!terrainMesh) return;
+  const { dem, viewshed, nx, ny } = terrainData;
+
+  if (state.showSatellite && satelliteTexture) {
+    if (state.showViewshed && viewshedCanvasTexture) {
+      // Create combined canvas of Satellite + Viewshed Overlay for best visual fidelity
+      const blendCanvas = document.createElement('canvas');
+      const satImg = satelliteTexture.image;
+      if (satImg && satImg.width) {
+        blendCanvas.width = satImg.width;
+        blendCanvas.height = satImg.height;
+        const ctx = blendCanvas.getContext('2d');
+        ctx.drawImage(satImg, 0, 0);
+
+        // Draw viewshed mask on top
+        const viewshedImg = viewshedCanvasTexture.image;
+        if (viewshedImg) {
+          ctx.globalAlpha = 0.65;
+          ctx.drawImage(viewshedImg, 0, 0, blendCanvas.width, blendCanvas.height);
+          ctx.globalAlpha = 1.0;
+        }
+
+        const combinedTex = new THREE.CanvasTexture(blendCanvas);
+        combinedTex.colorSpace = THREE.SRGBColorSpace;
+        terrainMesh.material.map = combinedTex;
+      } else {
+        terrainMesh.material.map = satelliteTexture;
+      }
+    } else {
+      terrainMesh.material.map = satelliteTexture;
+    }
+    terrainMesh.material.vertexColors = false;
+    terrainMesh.material.color.set(0xffffff);
+  } else {
+    // Show Hypsometric Elevation Relief
+    terrainMesh.material.map = null;
+    terrainMesh.material.vertexColors = true;
+    updateTerrainColors();
+  }
+
+  terrainMesh.material.needsUpdate = true;
+}
+
 function updateTerrainColors() {
   if (!terrainGeometry || !terrainData) return;
   const { dem, viewshed } = terrainData;
@@ -250,7 +343,7 @@ function updateTerrainColors() {
       0.30 - t * 0.15
     );
 
-    if (state.showViewshed && isVisible) {
+    if (!state.showSatellite && state.showViewshed && isVisible) {
       baseColor.setRGB(0.1, 0.85, 0.35);
     }
     colors.push(baseColor.r, baseColor.g, baseColor.b);
@@ -397,69 +490,104 @@ function buildSightlines() {
   raysGroup.visible = state.showRays;
 }
 
-// --- BUILD BUILDINGS ---
+// --- BUILD LoD2 BUILDINGS (ROOFS & WALLS) ---
 function buildBuildings() {
   while (buildingsGroup.children.length > 0) {
     buildingsGroup.remove(buildingsGroup.children[0]);
   }
 
-  if (!buildingsData || buildingsData.length === 0) return;
+  if (!buildingsData) return;
 
-  const bldgMat = new THREE.MeshStandardMaterial({
-    color: 0xf59e0b,
-    roughness: 0.6,
-    metalness: 0.15
-  });
+  const roofPositions = [];
+  const wallPositions = [];
 
-  // Construct triangular meshes from building footprint polygons with heights
-  const geometries = [];
+  // Helper function to triangulate a 3D planar polygon ring
+  function triangulatePoly(pts, targetArr) {
+    if (!pts || pts.length < 3) return;
+    let ring = pts;
+    if (ring.length >= 4) {
+      const first = ring[0];
+      const last = ring[ring.length - 1];
+      if (Math.abs(first[0] - last[0]) < 0.001 &&
+          Math.abs(first[1] - last[1]) < 0.001 &&
+          Math.abs(first[2] - last[2]) < 0.001) {
+        ring = ring.slice(0, ring.length - 1);
+      }
+    }
+    const n = ring.length;
+    if (n < 3) return;
 
-  buildingsData.forEach(b => {
-    b.polys.forEach(ring => {
-      if (ring.length < 3) return;
-      // Extrude simple prisms from 2D ring with roof height
-      const shape = new THREE.Shape();
-      const avgZ = ring.reduce((sum, pt) => sum + pt[2], 0) / ring.length;
-      const heightVal = Math.max(2.0, (avgZ - BASE_Z) * SCALE_Z * state.exaggeration);
+    // Fan triangulation for planar polygons
+    for (let i = 1; i < n - 1; i++) {
+      const p0 = ring[0];
+      const p1 = ring[i];
+      const p2 = ring[i + 1];
 
-      const startPt = ring[0];
-      shape.moveTo(
-        (startPt[0] - CENTER_X) * SCALE_XY,
-        -(startPt[1] - CENTER_Y) * SCALE_XY
+      // p0
+      targetArr.push(
+        (p0[0] - CENTER_X) * SCALE_XY,
+        (p0[2] - BASE_Z) * SCALE_Z * state.exaggeration,
+        -(p0[1] - CENTER_Y) * SCALE_XY
       );
+      // p1
+      targetArr.push(
+        (p1[0] - CENTER_X) * SCALE_XY,
+        (p1[2] - BASE_Z) * SCALE_Z * state.exaggeration,
+        -(p1[1] - CENTER_Y) * SCALE_XY
+      );
+      // p2
+      targetArr.push(
+        (p2[0] - CENTER_X) * SCALE_XY,
+        (p2[2] - BASE_Z) * SCALE_Z * state.exaggeration,
+        -(p2[1] - CENTER_Y) * SCALE_XY
+      );
+    }
+  }
 
-      for (let k = 1; k < ring.length; k++) {
-        shape.lineTo(
-          (ring[k][0] - CENTER_X) * SCALE_XY,
-          -(ring[k][1] - CENTER_Y) * SCALE_XY
-        );
-      }
+  // Triangulate LoD2 Roofs
+  if (buildingsData.roofs && Array.isArray(buildingsData.roofs)) {
+    buildingsData.roofs.forEach(r => triangulatePoly(r, roofPositions));
+  }
 
-      const extrudeSettings = {
-        depth: heightVal,
-        bevelEnabled: false
-      };
+  // Triangulate LoD2 Walls
+  if (buildingsData.walls && Array.isArray(buildingsData.walls)) {
+    buildingsData.walls.forEach(w => triangulatePoly(w, wallPositions));
+  }
 
-      try {
-        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        geo.rotateX(-Math.PI / 2); // Lay flat
-        geometries.push(geo);
-      } catch (e) {
-        // Skip invalid non-simple polygons
-      }
+  // Roof Mesh: Authentic terracotta / red tile roof finish
+  if (roofPositions.length > 0) {
+    const roofGeo = new THREE.BufferGeometry();
+    roofGeo.setAttribute('position', new THREE.Float32BufferAttribute(roofPositions, 3));
+    roofGeo.computeVertexNormals();
+
+    const roofMat = new THREE.MeshStandardMaterial({
+      color: 0xdd4b22, // Terracotta red roof tiles
+      roughness: 0.55,
+      metalness: 0.1,
+      side: THREE.DoubleSide
     });
-  });
+    const roofMesh = new THREE.Mesh(roofGeo, roofMat);
+    roofMesh.castShadow = true;
+    roofMesh.receiveShadow = true;
+    buildingsGroup.add(roofMesh);
+  }
 
-  if (geometries.length > 0) {
-    // Group and add
-    const mergedMeshGroup = new THREE.Group();
-    geometries.slice(0, 500).forEach(g => {
-      const m = new THREE.Mesh(g, bldgMat);
-      m.castShadow = true;
-      m.receiveShadow = true;
-      mergedMeshGroup.add(m);
+  // Wall Mesh: Warm Sandstone / Ochre masonry walls
+  if (wallPositions.length > 0) {
+    const wallGeo = new THREE.BufferGeometry();
+    wallGeo.setAttribute('position', new THREE.Float32BufferAttribute(wallPositions, 3));
+    wallGeo.computeVertexNormals();
+
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0xf3e8d2, // Warm sandstone masonry
+      roughness: 0.75,
+      metalness: 0.05,
+      side: THREE.DoubleSide
     });
-    buildingsGroup.add(mergedMeshGroup);
+    const wallMesh = new THREE.Mesh(wallGeo, wallMat);
+    wallMesh.castShadow = true;
+    wallMesh.receiveShadow = true;
+    buildingsGroup.add(wallMesh);
   }
 
   buildingsGroup.visible = state.showBuildings;
@@ -532,11 +660,19 @@ function setupEventListeners() {
   });
 
   // Toggles
+  const togSat = document.getElementById('toggle-satellite');
+  if (togSat) {
+    togSat.addEventListener('change', (e) => {
+      state.showSatellite = e.target.checked;
+      updateTerrainMaterial();
+    });
+  }
+
   const togViewshed = document.getElementById('toggle-viewshed');
   if (togViewshed) {
     togViewshed.addEventListener('change', (e) => {
       state.showViewshed = e.target.checked;
-      updateTerrainColors();
+      updateTerrainMaterial();
     });
   }
 

@@ -112,6 +112,12 @@
           <h3 class="panel-title"><i class="fa-solid fa-layer-group"></i> 3D-Kartenebenen</h3>
           <div class="toggle-group">
             <label class="toggle-control">
+              <input type="checkbox" id="toggle-satellite" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-label"><i class="fa-solid fa-satellite" style="color: #0284c7;"></i> Satellitenbild (DOP20)</span>
+            </label>
+
+            <label class="toggle-control">
               <input type="checkbox" id="toggle-viewshed" checked>
               <span class="toggle-track"></span>
               <span class="toggle-label"><i class="fa-solid fa-eye" style="color: #10b981;"></i> Viewshed (Sichtbarkeit)</span>
@@ -126,7 +132,7 @@
             <label class="toggle-control">
               <input type="checkbox" id="toggle-buildings" checked>
               <span class="toggle-track"></span>
-              <span class="toggle-label"><i class="fa-solid fa-building" style="color: #f59e0b;"></i> LoD2-Gebäudeensemble</span>
+              <span class="toggle-label"><i class="fa-solid fa-building" style="color: #f59e0b;"></i> LoD2-Gebäude (Dächer & Wände)</span>
             </label>
 
             <label class="toggle-control">
@@ -205,12 +211,12 @@
           <h4><i class="fa-solid fa-map-pin"></i> Legende der 3D-Szene</h4>
           <div class="legend-items">
             <div class="legend-item">
-              <span class="color-swatch viewshed-visible"></span>
-              <span><strong>Viewshed Grün:</strong> Direkte Sichtlinie zur Antenne</span>
+              <span class="color-swatch satellite-swatch"></span>
+              <span><strong>DOP20 Orthofoto:</strong> Reale Luftbild-Texturierung (0,2 m)</span>
             </div>
             <div class="legend-item">
-              <span class="color-swatch viewshed-shadow"></span>
-              <span><strong>Gelände Relief:</strong> Maintal & Weinberghänge</span>
+              <span class="color-swatch viewshed-visible"></span>
+              <span><strong>Viewshed Grün:</strong> Direkte Sichtlinie zur Antenne</span>
             </div>
             <div class="legend-item">
               <span class="color-swatch ray-visible"></span>
@@ -218,11 +224,15 @@
             </div>
             <div class="legend-item">
               <span class="color-swatch ray-blocked"></span>
-              <span><strong>Roter Strahl:</strong> Sichtkontakt durch Hindernis unterbrochen</span>
+              <span><strong>Roter Strahl:</strong> Durch Gelände oder First unterbrochen</span>
             </div>
             <div class="legend-item">
-              <span class="color-swatch building-color"></span>
-              <span><strong>Gebäudekörper:</strong> 841 CityGML LoD2 Gebäude</span>
+              <span class="color-swatch roof-color"></span>
+              <span><strong>LoD2 Ziegeldächer:</strong> Echte Dachflächen & Firsthöhen</span>
+            </div>
+            <div class="legend-item">
+              <span class="color-swatch wall-color"></span>
+              <span><strong>LoD2 Fassaden:</strong> Außenwände der Baukörper</span>
             </div>
           </div>
         </div>

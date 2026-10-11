@@ -518,11 +518,13 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 3px;
   flex-shrink: 0;
 }
+.color-swatch.satellite-swatch { background: #0284c7; }
 .color-swatch.viewshed-visible { background: #10b981; }
 .color-swatch.viewshed-shadow { background: #1e293b; }
 .color-swatch.ray-visible { background: #22c55e; }
 .color-swatch.ray-blocked { background: #ef4444; }
-.color-swatch.building-color { background: #d97706; }
+.color-swatch.roof-color { background: #ea580c; }
+.color-swatch.wall-color { background: #fcd34d; }
 
 /* Info Box */
 .info-box {
