@@ -7,11 +7,11 @@
 
 Ein interaktives 3D-Webportal und Dashboard zur geospatialen **Sichtbarkeitsanalyse (Viewshed & Line-of-Sight)** für einen fiktiven Antennenstandort im Markt **Randersacker bei Würzburg**. Entwickelt im Rahmen des Moduls **3D-GIS** an der Technischen Hochschule Würzburg-Schweinfurt (THWS).
 
-👉 **Live-Webseite:** [https://RLKO31.github.io/randersacker-sichtbarkeitsanalyse/](https://RLKO31.github.io/randersacker-sichtbarkeitsanalyse/)
+**Live-Webseite:** [https://RLKO31.github.io/randersacker-sichtbarkeitsanalyse/](https://RLKO31.github.io/randersacker-sichtbarkeitsanalyse/)
 
 ---
 
-## 📡 Hintergrund des Projekts
+## Hintergrund des Projekts
 
 Für die Planung eines neuen Funk-/Antennenstandorts in hügeligem Weinberggelände (Maintal bei Würzburg) wurde eine 3D-Sichtbarkeits- und Verschattungsanalyse durchgeführt. 
 
@@ -21,7 +21,7 @@ Ziel der Untersuchung:
 
 ---
 
-## 🔬 Methodik & Geoverarbeitung (ArcGIS Pro / ArcPy)
+## Methodik & Geoverarbeitung (ArcGIS Pro / ArcPy)
 
 1. **Digitales Oberflächenmodell (DOM):**
    - Verschneidung des hochauflösenden **DGM1 (Digitales Geländemodell)** mit rasterisierten amtlichen **CityGML LoD2-3D-Gebäuden**.
@@ -36,23 +36,23 @@ Ziel der Untersuchung:
 
 ---
 
-## ⚙️ Features der interaktiven 3D-Webanwendung
+## Features der interaktiven 3D-Webanwendung
 
-- 🕹️ **Interaktiver 3D-Viewer (Three.js):**
+- **Interaktiver 3D-Viewer (Three.js):**
   - Freies Drehen, Schwenken und Zoomen des 3D-Geländereliefs von Randersacker
   - 3D-Gebäude mit Firsten und Dachgeometrien
   - Interaktive Antennenmasten mit animierter Funkwellen-Aura
-- 📊 **Ebenen-Umschaltung:**
+- **Ebenen-Umschaltung:**
   - *Satellitenbild (DOP20):* Hochauflösendes Orthofoto texturiert auf das 3D-Relief
   - *Viewshed-Raster:* Ein-/Ausblenden der berechneten Sichtbarkeitsmaske (Grün = Sichtbar)
   - *3D-Sichtstrahlenfächer (Rays):* Grüne Sichtstrahlen vs. rote blockierte Strahlen
   - *3D-Gebäude (LoD2):* Realistische Dach- und Wandgeometrien der Ortschaft
-- 📷 **Kamera-Presets:** Isometrie, Antennen-Nahblick, Maintal-Panorama, Vogelperspektive
-- 🖼️ **Ergebnis-Galerie:** Hochauflösende GIS-Auswertungskarten und 3D-Renderschnitte aus der Analyse
+- **Kamera-Presets:** Isometrie, Antennen-Nahblick, Maintal-Panorama, Vogelperspektive
+- **Ergebnis-Galerie:** Hochauflösende GIS-Auswertungskarten und 3D-Renderschnitte aus der Analyse
 
 ---
 
-## 📊 Geodatenbasis & Quellenangaben (Credits)
+## Geodatenbasis & Quellenangaben (Credits)
 
 Alle zugrundeliegenden Geobasisdaten stammen aus dem Open-Data-Angebot des Freistaates Bayern:
 
@@ -67,7 +67,7 @@ Alle zugrundeliegenden Geobasisdaten stammen aus dem Open-Data-Angebot des Freis
 
 ---
 
-## 📜 Impressum (§ 5 DDG) & Kontakt
+## Impressum (§ 5 DDG) & Kontakt
 
 - **Entwickler / Betreiber:** Ralf Oppel
 - **Studiengang:** Geodatenmanagement / Vermessung
